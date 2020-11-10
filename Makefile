@@ -8,9 +8,10 @@ inc = inc
 
 debug = 1
 
-CFlags = -Wall -O3 -std=c++11
-LDFlags =
-libs =
+CFlags = -Wall -O3 -std=c++11 -fPIC 
+CFlags += $(shell python3.6-config --cflags)
+LDFlags = $(shell python3.6-config --ldflags)
+libs = $(shell python3.6-config --libs)
 libDir =
 
 
