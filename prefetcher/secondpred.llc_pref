@@ -36,13 +36,13 @@ void CACHE::llc_prefetcher_initialize()
 //	deltafile.open("delta.txt", ofstream::trunc);
 //	deltafile.close();
 	Py_Initialize();
-	pName = PyUnicode_FromString("delta");
+	pName = PyUnicode_FromString("secondpred");
 
     pModule = PyImport_Import(pName);
     Py_DECREF(pName);
     if (pModule == NULL) {
         PyErr_Print();
-        fprintf(stderr, "Failed to load module delta");
+        fprintf(stderr, "Failed to load module secondpred");
         return;
     }
 	pFunc = PyObject_GetAttrString(pModule, "pref_init");
@@ -72,7 +72,7 @@ void CACHE::llc_prefetcher_initialize()
 
 uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in)
 {
-	int pred1;
+	int pred1, pred2;
 	uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
     //check if ip already in history
 	int index = -1;
@@ -132,15 +132,25 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
 	 		pValue = PyObject_CallObject(pFunc, arglist);
 			Py_XDECREF(arglist);
         	if (pValue != NULL) {
-				PyArg_ParseTuple(pValue,"i",&pred1);
+				PyArg_ParseTuple(pValue,"ii",&pred1, &pred2);
 				if (pred1 != 0){
 					uint64_t pythonDelta = pred1;
   					uint64_t pf_addr = (cl_addr + pythonDelta) << LOG2_BLOCK_SIZE;
 					if ((pf_addr>>LOG2_PAGE_SIZE) == (addr >> LOG2_PAGE_SIZE)){
 	  					prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
 					}
+					//pf_addr = (cl_addr + pythonDelta+1) << LOG2_BLOCK_SIZE;
+					//if ((pf_addr>>LOG2_PAGE_SIZE) == (addr >> LOG2_PAGE_SIZE)){
+	  				//	prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
+					//}
 				}
-				
+				if (pred2 != 0){
+					uint64_t pythonDelta = pred2;
+  					uint64_t pf_addr = (cl_addr + pythonDelta) << LOG2_BLOCK_SIZE;
+					if ((pf_addr>>LOG2_PAGE_SIZE) == (addr >> LOG2_PAGE_SIZE)){
+	  					prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
+					}
+				}
 	        				//cout << "Result operate of call "<< PyLong_AsLong(pValue)<<endl;
 //			uint64_t pf_addr =PyLong_AsLong(pValue);
 //DO THE PREFETCH

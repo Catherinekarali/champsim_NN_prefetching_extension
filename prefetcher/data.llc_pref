@@ -1,0 +1,121 @@
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+#include "cache.h"
+
+#define TOTAL_IPS 2048
+#define QUEUE_SIZE 34
+#define MIN_IP_APPEARANCES 34
+
+class IPS{
+  public:
+	uint64_t ip;
+	uint64_t last_addr;
+	deque<uint64_t> deltas;
+    uint32_t lru;
+
+	IPS (){
+  	  ip = 0;
+	  last_addr = 0;
+	  lru = 0;
+	};
+};
+
+IPS history[TOTAL_IPS];
+
+
+void CACHE::llc_prefetcher_initialize() 
+{
+    cout << "LLC miss data extract" << endl;
+	ofstream myf;
+	myf.open("A.txt");
+	myf.close();
+	for (int i=0; i<TOTAL_IPS; i++)
+		history[i].lru = i;
+
+}
+
+uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in)
+{
+ofstream myf;
+myf.open("out607nn_warmup50_10_33.txt", std::ios_base::app);
+//myf <<"begin"<<endl;
+	//myf.open("A.txt");
+	uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
+    //check if ip already in history
+	int index = -1;
+	for (index=0; index<TOTAL_IPS; index++){
+		if (history[index].ip == ip )
+			break;
+	}
+//	myf << index <<endl;
+	//new ip
+	if (index == TOTAL_IPS){
+		for (index = 0; index <TOTAL_IPS; index++){
+			if(history[index].lru == (TOTAL_IPS -1))
+				break;
+		}
+//		myf << index <<endl;
+//		myf << ip << endl;
+		history[index].ip = ip;
+		history[index].last_addr = cl_addr;
+
+		for (int i=0; i<TOTAL_IPS; i++){
+			if (history[i].lru < history[index].lru)
+				history[i].lru++;
+		}
+		history[index].lru = 0;
+//	myf << "-1"<<endl;
+	myf.close();
+		return metadata_in;
+	}
+//	myf <<"why"<<endl;
+	if (index == -1)
+		assert(0);
+
+	//we know history index
+	uint64_t delta = 0;
+	if (cl_addr > history[index].last_addr)
+		delta = cl_addr - history[index].last_addr;
+	else {
+		delta = history[index].last_addr - cl_addr;
+		delta *= -1;
+	}
+//	if (delta < -128 || delta > 128)
+//		delta = 0;
+
+	history[index].last_addr = cl_addr;
+	if (history[index].deltas.size() == QUEUE_SIZE)
+		history[index].deltas.pop_front();
+	history[index].deltas.push_back(delta);
+//	myf <<"true"<<endl;
+	if (myf.is_open()){	
+		if (history[index].deltas.size() >= MIN_IP_APPEARANCES){
+			int n = history[index].deltas.size();
+			myf << "[";
+			myf <<history[index].ip;			
+			for (int i=0; i<n-1; i++){
+				myf << history[index].deltas.at(i) <<",";
+			}	
+			myf << history[index].deltas.at(n-1)<< "]" << endl;
+		}
+	}
+	else
+		cout <<"didnt write"<<endl;
+
+	for (int i=0; i<TOTAL_IPS; i++){
+		if (history[i].lru < history[index].lru)
+			history[i].lru++;
+	}	
+	myf.close();
+    return metadata_in;
+}
+
+uint32_t CACHE::llc_prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+  return metadata_in;
+}
+
+void CACHE::llc_prefetcher_final_stats()
+{
+  cout << "LLC delta Prefetcher Final Stats" << endl; 
+}
