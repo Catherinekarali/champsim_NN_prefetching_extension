@@ -36,8 +36,9 @@ void CACHE::llc_prefetcher_initialize()
 
 uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in)
 {
+extern char* outfile;
 ofstream myf;
-myf.open("out607nn_warmup50_10_33.txt", std::ios_base::app);
+myf.open(outfile, std::ios_base::app);
 //myf <<"begin"<<endl;
 	//myf.open("A.txt");
 	uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;

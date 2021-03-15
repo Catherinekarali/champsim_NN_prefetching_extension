@@ -1,0 +1,20 @@
+για να εξάγω δεδομένα
+./run_champsim.sh bimodal-no-no-no-data-lru-1core 0 1 600.perlbench_s-210B.champsimtrace.xz -outfile out600
+
+επεξεργασια dataset
+συναρτηση cleardata
+
+για την επιλογη 2000 τυχαιων δεδομένων εισόδου για την εκπαίδευση του νευρωνικού
+shuf -n 2000 607nn_warmup50_200_33.txt > random_data/607nn_50_200_33_s2000.txt 
+
+εκπαιδευση μοντέλου 
+LSTM
+transformer
+
+build
+./build_champsim.sh bimodal no next_line next_line secondpred lru 1
+run
+./run_champsim.sh bimodal-no-next_line-next_line-secondpred-lru-1core 0 1 600.perlbench_s-210B.champsimtrace.xz -ml_model 600_33_cells1283
+
+το μοντέλο βρίσκεται στον κύριο φάκελο του champsim
+

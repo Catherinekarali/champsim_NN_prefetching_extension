@@ -20,6 +20,7 @@ uint64_t warmup_instructions     = 1000000,
 
 time_t start_time;
 char* ml_model;
+char* outfile;
 // PAGE TABLE
 uint32_t PAGE_TABLE_LATENCY = 0, SWAP_LATENCY = 0;
 queue <uint64_t > page_queue;
@@ -517,6 +518,7 @@ int main(int argc, char** argv)
 
     uint32_t seed_number = 0;
 	ml_model = "";
+	outfile = "";
     // check to see if knobs changed using getopt_long()
     int c;
     while (1) {
@@ -528,13 +530,14 @@ int main(int argc, char** argv)
             {"cloudsuite", no_argument, 0, 'c'},
             {"low_bandwidth",  no_argument, 0, 'b'},
 			{"ml_model", required_argument, 0, 'm'},
+			{"outfile", required_argument, 0, 'o'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}      
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihsbm", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihsbmo", long_options, &option_index);
 
         // no more option characters
         if (c == -1)
@@ -560,6 +563,9 @@ int main(int argc, char** argv)
                 knob_low_bandwidth = 1;
 			case 'm':
 				ml_model = optarg;
+                break;
+			case 'o':
+				outfile = optarg;
                 break;
             case 't':
                 traces_encountered = 1;
