@@ -10,21 +10,27 @@ from numpy import array
 from keras.models import model_from_json
 #from keras.models import load_model
 from keras import backend as K
+import os
 
-def pref_init():
-	Model = '649_33_cells32'
+def pref_init(Model):
 	global model
+	global transformer
 	K.clear_session()
 #	model=load_model(Model+"new")
 #	tf.keras.backend.clear_session()
 #	model = tf.keras.models.load_model(Model+"new", compile=False)
 	clear_session()
-	json_file = open(Model + '.json', 'r')
-	loaded_model_json = json_file.read()
-	json_file.close()
-	model = model_from_json(loaded_model_json)
-	model.load_weights(Model + ".h5")
-	model.compile(optimizer='adam',loss='categorical_crossentropy', metrics=['accuracy'])
+	if os.path.exists(Model + '.json'):
+		json_file = open(Model + '.json', 'r')
+		loaded_model_json = json_file.read()
+		json_file.close()
+		model = model_from_json(loaded_model_json)
+		model.load_weights(Model + ".h5")
+		model.compile(optimizer='adam',loss='categorical_crossentropy', metrics=['accuracy'])
+		transformer = False
+	elif os.path.exists(Model):
+		model=load_model(Model)
+		transformer = True
 	return 0;
 
 def pref_operate(h_list):
@@ -34,7 +40,10 @@ def pref_operate(h_list):
 			h_list[i] = 0
 	h_list[0] = (h_list[0]&127)
 	x = array(h_list)
-	XX = x.reshape(1,steps,1)
+	if (transformer == False):	
+		XX = x.reshape(1,steps,1)
+	else:
+		XX = x.reshape(1,33)
 
 	a = model.predict(XX)
 	pred1 = list(a[0]).index(max(list(a[0])))-64

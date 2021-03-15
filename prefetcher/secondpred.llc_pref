@@ -28,13 +28,13 @@ PyObject *pValue, *pArgs;
 
 void CACHE::llc_prefetcher_initialize() 
 {
+	extern char* ml_model;
+
     cout << "LLC 2pred-LSTM Prefetcher" << endl;
+	printf("yes %s\n", ml_model);
 	for (int i=0; i<TOTAL_IPS; i++)
 		history[i].lru = i;
 
-//	ofstream deltafile;
-//	deltafile.open("delta.txt", ofstream::trunc);
-//	deltafile.close();
 	Py_Initialize();
 	pName = PyUnicode_FromString("secondpred");
 
@@ -48,9 +48,8 @@ void CACHE::llc_prefetcher_initialize()
 	pFunc = PyObject_GetAttrString(pModule, "pref_init");
 	
     if (pFunc && PyCallable_Check(pFunc)) {
-	pArgs = PyTuple_New(0);
-	pValue = PyObject_CallObject(pFunc, pArgs);
-   	Py_DECREF(pArgs);
+
+	pValue = PyObject_CallObject(pFunc,Py_BuildValue("(O)",PyUnicode_FromString(ml_model)));
     	if (pValue != NULL) {
         	printf("Result of init call: %ld\n", PyLong_AsLong(pValue));
         	Py_DECREF(pValue);
@@ -72,6 +71,7 @@ void CACHE::llc_prefetcher_initialize()
 
 uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in)
 {
+	
 	int pred1, pred2;
 	uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
     //check if ip already in history
@@ -108,14 +108,11 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
 		delta = history[index].last_addr - cl_addr;
 		delta *= -1;
 	}
-	//if (delta < -128 || delta > 128)
-	//	delta = 0;
 
 	history[index].last_addr = cl_addr;
 	if (history[index].deltas.size() == QUEUE_SIZE)
 		history[index].deltas.pop_front();
 	history[index].deltas.push_back(delta);
-//if(metadata_in == 11){
 	if (history[index].deltas.size() >= MIN_IP_APPEARANCES){
 		pFunc = PyObject_GetAttrString(pModule, "pref_operate");
 		int n = history[index].deltas.size();
@@ -151,11 +148,6 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
 	  					prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
 					}
 				}
-	        				//cout << "Result operate of call "<< PyLong_AsLong(pValue)<<endl;
-//			uint64_t pf_addr =PyLong_AsLong(pValue);
-//DO THE PREFETCH
-//			uint64_t pl = prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
-//			cout << "prefetch_line result" << pl << "\n";
            		Py_DECREF(pValue);
         	}
         	else {
@@ -172,7 +164,6 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
         	fprintf(stderr, "Cannot find function\n");
         }	
       	Py_XDECREF(pFunc);
-//				}	
 	}
 	else{
 		uint64_t pf_addr = (cl_addr + 1) << LOG2_BLOCK_SIZE;
@@ -180,7 +171,7 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
 	  			prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
 			}
 	}
-//}
+
 	for (int i=0; i<TOTAL_IPS; i++){
 		if (history[i].lru < history[index].lru)
 			history[i].lru++;

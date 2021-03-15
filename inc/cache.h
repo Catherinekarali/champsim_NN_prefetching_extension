@@ -1,8 +1,10 @@
 #ifndef CACHE_H
 #define CACHE_H
 
+#include <Python.h>
 #include "memory_class.h"
 
+extern char* ml_model;
 // PAGE
 extern uint32_t PAGE_TABLE_LATENCY, SWAP_LATENCY;
 

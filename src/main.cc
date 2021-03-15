@@ -5,6 +5,7 @@
 #include "uncore.h"
 #include <fstream>
 
+
 uint8_t warmup_complete[NUM_CPUS], 
         simulation_complete[NUM_CPUS], 
         all_warmup_complete = 0, 
@@ -18,7 +19,7 @@ uint64_t warmup_instructions     = 1000000,
          champsim_seed;
 
 time_t start_time;
-
+char* ml_model;
 // PAGE TABLE
 uint32_t PAGE_TABLE_LATENCY = 0, SWAP_LATENCY = 0;
 queue <uint64_t > page_queue;
@@ -43,7 +44,7 @@ void print_roi_stats(uint32_t cpu, CACHE *cache)
         TOTAL_HIT += cache->roi_hit[cpu][i];
         TOTAL_MISS += cache->roi_miss[cpu][i];
     }
-
+#ifndef EXTRACT_DATA
     cout << cache->NAME;
     cout << " TOTAL     ACCESS: " << setw(10) << TOTAL_ACCESS << "  HIT: " << setw(10) << TOTAL_HIT << "  MISS: " << setw(10) << TOTAL_MISS << endl;
 
@@ -66,6 +67,7 @@ void print_roi_stats(uint32_t cpu, CACHE *cache)
     cout << cache->NAME;
     cout << " AVERAGE MISS LATENCY: " << (1.0*(cache->total_miss_latency))/TOTAL_MISS << " cycles" << endl;
     //cout << " AVERAGE MISS LATENCY: " << (cache->total_miss_latency)/TOTAL_MISS << " cycles " << cache->total_miss_latency << "/" << TOTAL_MISS<< endl;
+#endif
 }
 
 void print_sim_stats(uint32_t cpu, CACHE *cache)
@@ -77,7 +79,7 @@ void print_sim_stats(uint32_t cpu, CACHE *cache)
         TOTAL_HIT += cache->sim_hit[cpu][i];
         TOTAL_MISS += cache->sim_miss[cpu][i];
     }
-
+#ifndef EXTRACT_DATA
     cout << cache->NAME;
     cout << " TOTAL     ACCESS: " << setw(10) << TOTAL_ACCESS << "  HIT: " << setw(10) << TOTAL_HIT << "  MISS: " << setw(10) << TOTAL_MISS << endl;
 
@@ -92,10 +94,12 @@ void print_sim_stats(uint32_t cpu, CACHE *cache)
 
     cout << cache->NAME;
     cout << " WRITEBACK ACCESS: " << setw(10) << cache->sim_access[cpu][3] << "  HIT: " << setw(10) << cache->sim_hit[cpu][3] << "  MISS: " << setw(10) << cache->sim_miss[cpu][3] << endl;
+#endif
 }
 
 void print_branch_stats()
 {
+#ifndef EXTRACT_DATA
     for (uint32_t i=0; i<NUM_CPUS; i++) {
         cout << endl << "CPU " << i << " Branch Prediction Accuracy: ";
         cout << (100.0*(ooo_cpu[i].num_branch - ooo_cpu[i].branch_mispredictions)) / ooo_cpu[i].num_branch;
@@ -112,10 +116,12 @@ void print_branch_stats()
 	cout << "BRANCH_RETURN: " << ooo_cpu[i].total_branch_types[6] << " " << (100.0*ooo_cpu[i].total_branch_types[6])/(ooo_cpu[i].num_retired - ooo_cpu[i].begin_sim_instr) << "%" << endl;
 	cout << "BRANCH_OTHER: " << ooo_cpu[i].total_branch_types[7] << " " << (100.0*ooo_cpu[i].total_branch_types[7])/(ooo_cpu[i].num_retired - ooo_cpu[i].begin_sim_instr) << "%" << endl << endl;
     }
+#endif
 }
 
 void print_dram_stats()
 {
+#ifndef EXTRACT_DATA
     cout << endl;
     cout << "DRAM Statistics" << endl;
     for (uint32_t i=0; i<DRAM_CHANNELS; i++) {
@@ -134,6 +140,7 @@ void print_dram_stats()
         cout << " AVG_CONGESTED_CYCLE: " << (total_congested_cycle / uncore.DRAM.dbus_congested[NUM_TYPES][NUM_TYPES]) << endl;
     else
         cout << " AVG_CONGESTED_CYCLE: -" << endl;
+#endif
 }
 
 void reset_cache_stats(uint32_t cpu, CACHE *cache)
@@ -179,12 +186,14 @@ void finish_warmup()
     DECODE_LATENCY = 2;
     PAGE_TABLE_LATENCY = 100;
     SWAP_LATENCY = 100000;
-
+#ifndef EXTRACT_DATA
     cout << endl;
+#endif
     for (uint32_t i=0; i<NUM_CPUS; i++) {
+#ifndef EXTRACT_DATA
         cout << "Warmup complete CPU " << i << " instructions: " << ooo_cpu[i].num_retired << " cycles: " << current_core_cycle[i];
         cout << " (Simulation time: " << elapsed_hour << " hr " << elapsed_minute << " min " << elapsed_second << " sec) " << endl;
-
+#endif
         ooo_cpu[i].begin_sim_cycle = current_core_cycle[i]; 
         ooo_cpu[i].begin_sim_instr = ooo_cpu[i].num_retired;
 
@@ -203,8 +212,9 @@ void finish_warmup()
         reset_cache_stats(i, &ooo_cpu[i].L2C);
         reset_cache_stats(i, &uncore.LLC);
     }
+#ifndef EXTRACT_DATA
     cout << endl;
-
+#endif
     // reset DRAM stats
     for (uint32_t i=0; i<DRAM_CHANNELS; i++) {
         uncore.DRAM.RQ[i].ROW_BUFFER_HIT = 0;
@@ -297,7 +307,7 @@ uint64_t rotr64 (uint64_t n, unsigned int c)
 }
 
 RANDOM champsim_rand(champsim_seed);
-uint64_t va_to_pa(uint32_t cpu, uint64_t instr_id, uint64_t va, uint64_t unique_vpage)
+uint64_t va_to_pa(uint32_t cpu, uint64_t instr_id, uint64_t va, uint64_t unique_vpage, uint8_t is_code)
 {
 #ifdef SANITY_CHECK
     if (va == 0) 
@@ -466,14 +476,29 @@ uint64_t va_to_pa(uint32_t cpu, uint64_t instr_id, uint64_t va, uint64_t unique_
     cout << "[PAGE_TABLE] instr_id: " << instr_id << " vpage: " << hex << vpage;
     cout << " => ppage: " << (pa >> LOG2_PAGE_SIZE) << " vadress: " << unique_va << " paddress: " << pa << dec << endl; });
 
-    if (swap)
-        stall_cycle[cpu] = current_core_cycle[cpu] + SWAP_LATENCY;
-    else
-        stall_cycle[cpu] = current_core_cycle[cpu] + PAGE_TABLE_LATENCY;
+    // as a hack for code prefetching, code translations are magical and do not pay these penalties
+    if(!is_code)
+      {
+	// if it's data, pay these penalties
+	if (swap)
+	  stall_cycle[cpu] = current_core_cycle[cpu] + SWAP_LATENCY;
+	else
+	  stall_cycle[cpu] = current_core_cycle[cpu] + PAGE_TABLE_LATENCY;
+      }
 
     //cout << "cpu: " << cpu << " allocated unique_vpage: " << hex << unique_vpage << " to ppage: " << ppage << dec << endl;
 
     return pa;
+}
+
+void cpu_l1i_prefetcher_cache_operate(uint32_t cpu_num, uint64_t v_addr, uint8_t cache_hit, uint8_t prefetch_hit)
+{
+  ooo_cpu[cpu_num].l1i_prefetcher_cache_operate(v_addr, cache_hit, prefetch_hit);
+}
+
+void cpu_l1i_prefetcher_cache_fill(uint32_t cpu_num, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr)
+{
+  ooo_cpu[cpu_num].l1i_prefetcher_cache_fill(addr, set, way, prefetch, evicted_addr);
 }
 
 int main(int argc, char** argv)
@@ -484,14 +509,14 @@ int main(int argc, char** argv)
 	sigemptyset(&sigIntHandler.sa_mask);
 	sigIntHandler.sa_flags = 0;
 	sigaction(SIGINT, &sigIntHandler, NULL);
-
+#ifndef EXTRACT_DATA
     cout << endl << "*** ChampSim Multicore Out-of-Order Simulator ***" << endl << endl;
-
+#endif
     // initialize knobs
     uint8_t show_heartbeat = 1;
 
     uint32_t seed_number = 0;
-
+	ml_model = "";
     // check to see if knobs changed using getopt_long()
     int c;
     while (1) {
@@ -502,13 +527,14 @@ int main(int argc, char** argv)
             {"hide_heartbeat", no_argument, 0, 'h'},
             {"cloudsuite", no_argument, 0, 'c'},
             {"low_bandwidth",  no_argument, 0, 'b'},
+			{"ml_model", required_argument, 0, 'm'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}      
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihsb", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihsbm", long_options, &option_index);
 
         // no more option characters
         if (c == -1)
@@ -532,6 +558,8 @@ int main(int argc, char** argv)
                 break;
             case 'b':
                 knob_low_bandwidth = 1;
+			case 'm':
+				ml_model = optarg;
                 break;
             case 't':
                 traces_encountered = 1;
@@ -543,7 +571,7 @@ int main(int argc, char** argv)
         if (traces_encountered == 1)
             break;
     }
-
+#ifndef EXTRACT_DATA
     // consequences of knobs
     cout << "Warmup Instructions: " << warmup_instructions << endl;
     cout << "Simulation Instructions: " << simulation_instructions << endl;
@@ -551,7 +579,7 @@ int main(int argc, char** argv)
     cout << "Number of CPUs: " << NUM_CPUS << endl;
     cout << "LLC sets: " << LLC_SET << endl;
     cout << "LLC ways: " << LLC_WAY << endl;
-
+#endif
     if (knob_low_bandwidth)
         DRAM_MTPS = DRAM_IO_FREQ/4;
     else
@@ -566,40 +594,65 @@ int main(int argc, char** argv)
     // it takes 16 CPU cycles to tranfser 64B cache block on a 8B (64-bit) bus 
     // note that dram burst length = BLOCK_SIZE/DRAM_CHANNEL_WIDTH
     DRAM_DBUS_RETURN_TIME = (BLOCK_SIZE / DRAM_CHANNEL_WIDTH) * (CPU_FREQ / DRAM_MTPS);
-
+#ifndef EXTRACT_DATA
     printf("Off-chip DRAM Size: %u MB Channels: %u Width: %u-bit Data Rate: %u MT/s\n",
             DRAM_SIZE, DRAM_CHANNELS, 8*DRAM_CHANNEL_WIDTH, DRAM_MTPS);
-
+#endif
     // end consequence of knobs
 
     // search through the argv for "-traces"
     int found_traces = 0;
     int count_traces = 0;
+#ifndef EXTRACT_DATA
     cout << endl;
+#endif
     for (int i=0; i<argc; i++) {
-        if (found_traces) {
+        if (found_traces)
+        {
+#ifndef EXTRACT_DATA
             printf("CPU %d runs %s\n", count_traces, argv[i]);
 
             sprintf(ooo_cpu[count_traces].trace_string, "%s", argv[i]);
+#endif
+            std::string full_name(argv[i]);
+            std::string last_dot = full_name.substr(full_name.find_last_of("."));
 
-            char *full_name = ooo_cpu[count_traces].trace_string,
-                 *last_dot = strrchr(ooo_cpu[count_traces].trace_string, '.');
+            std::string fmtstr;
+            std::string decomp_program;
+            if (full_name.substr(0,4) == "http")
+            {
+                // Check file exists
+                char testfile_command[4096];
+                sprintf(testfile_command, "wget -q --spider %s", argv[i]);
+                FILE *testfile = popen(testfile_command, "r");
+                if (pclose(testfile))
+                {
+                    std::cerr << "TRACE FILE NOT FOUND" << std::endl;
+                    assert(0);
+                }
+                fmtstr = "wget -qO- %2$s | %1$s -dc";
+            }
+            else
+            {
+                std::ifstream testfile(argv[i]);
+                if (!testfile.good())
+                {
+                    std::cerr << "TRACE FILE NOT FOUND" << std::endl;
+                    assert(0);
+                }
+                fmtstr = "%1$s -dc %2$s";
+            }
 
-			ifstream test_file(full_name);
-			if(!test_file.good()){
-				printf("TRACE FILE DOES NOT EXIST\n");
-				assert(false);
-			}
-				
-
-            if (full_name[last_dot - full_name + 1] == 'g') // gzip format
-                sprintf(ooo_cpu[count_traces].gunzip_command, "gunzip -c %s", argv[i]);
-            else if (full_name[last_dot - full_name + 1] == 'x') // xz
-                sprintf(ooo_cpu[count_traces].gunzip_command, "xz -dc %s", argv[i]);
+            if (last_dot[1] == 'g') // gzip format
+                decomp_program = "gzip";
+            else if (last_dot[1] == 'x') // xz
+                decomp_program = "xz";
             else {
-                cout << "ChampSim does not support traces other than gz or xz compression!" << endl; 
+                std::cout << "ChampSim does not support traces other than gz or xz compression!" << std::endl;
                 assert(0);
             }
+
+            sprintf(ooo_cpu[count_traces].gunzip_command, fmtstr.c_str(), decomp_program.c_str(), argv[i]);
 
             char *pch[100];
             int count_str = 0;
@@ -663,19 +716,22 @@ int main(int argc, char** argv)
         // TLBs
         ooo_cpu[i].ITLB.cpu = i;
         ooo_cpu[i].ITLB.cache_type = IS_ITLB;
+	ooo_cpu[i].ITLB.MAX_READ = 2;
         ooo_cpu[i].ITLB.fill_level = FILL_L1;
         ooo_cpu[i].ITLB.extra_interface = &ooo_cpu[i].L1I;
         ooo_cpu[i].ITLB.lower_level = &ooo_cpu[i].STLB; 
 
         ooo_cpu[i].DTLB.cpu = i;
         ooo_cpu[i].DTLB.cache_type = IS_DTLB;
-        ooo_cpu[i].DTLB.MAX_READ = (2 > MAX_READ_PER_CYCLE) ? MAX_READ_PER_CYCLE : 2;
+        //ooo_cpu[i].DTLB.MAX_READ = (2 > MAX_READ_PER_CYCLE) ? MAX_READ_PER_CYCLE : 2;
+        ooo_cpu[i].DTLB.MAX_READ = 2;
         ooo_cpu[i].DTLB.fill_level = FILL_L1;
         ooo_cpu[i].DTLB.extra_interface = &ooo_cpu[i].L1D;
         ooo_cpu[i].DTLB.lower_level = &ooo_cpu[i].STLB;
 
         ooo_cpu[i].STLB.cpu = i;
         ooo_cpu[i].STLB.cache_type = IS_STLB;
+        ooo_cpu[i].STLB.MAX_READ = 1;
         ooo_cpu[i].STLB.fill_level = FILL_L2;
         ooo_cpu[i].STLB.upper_level_icache[i] = &ooo_cpu[i].ITLB;
         ooo_cpu[i].STLB.upper_level_dcache[i] = &ooo_cpu[i].DTLB;
@@ -683,9 +739,13 @@ int main(int argc, char** argv)
         // PRIVATE CACHE
         ooo_cpu[i].L1I.cpu = i;
         ooo_cpu[i].L1I.cache_type = IS_L1I;
-        ooo_cpu[i].L1I.MAX_READ = (FETCH_WIDTH > MAX_READ_PER_CYCLE) ? MAX_READ_PER_CYCLE : FETCH_WIDTH;
+        //ooo_cpu[i].L1I.MAX_READ = (FETCH_WIDTH > MAX_READ_PER_CYCLE) ? MAX_READ_PER_CYCLE : FETCH_WIDTH;
+        ooo_cpu[i].L1I.MAX_READ = 2;
         ooo_cpu[i].L1I.fill_level = FILL_L1;
         ooo_cpu[i].L1I.lower_level = &ooo_cpu[i].L2C; 
+        ooo_cpu[i].l1i_prefetcher_initialize();
+	ooo_cpu[i].L1I.l1i_prefetcher_cache_operate = cpu_l1i_prefetcher_cache_operate;
+	ooo_cpu[i].L1I.l1i_prefetcher_cache_fill = cpu_l1i_prefetcher_cache_fill;
 
         ooo_cpu[i].L1D.cpu = i;
         ooo_cpu[i].L1D.cache_type = IS_L1D;
@@ -804,10 +864,11 @@ int main(int argc, char** argv)
                 else
                     cumulative_ipc = (1.0*ooo_cpu[i].num_retired) / current_core_cycle[i];
                 float heartbeat_ipc = (1.0*ooo_cpu[i].num_retired - ooo_cpu[i].last_sim_instr) / (current_core_cycle[i] - ooo_cpu[i].last_sim_cycle);
-
+#ifndef EXTRACT_DATA
                 cout << "Heartbeat CPU " << i << " instructions: " << ooo_cpu[i].num_retired << " cycles: " << current_core_cycle[i];
                 cout << " heartbeat IPC: " << heartbeat_ipc << " cumulative IPC: " << cumulative_ipc; 
                 cout << " (Simulation time: " << elapsed_hour << " hr " << elapsed_minute << " min " << elapsed_second << " sec) " << endl;
+#endif
                 ooo_cpu[i].next_print_instruction += STAT_PRINTING_PERIOD;
 
                 ooo_cpu[i].last_sim_instr = ooo_cpu[i].num_retired;
@@ -844,10 +905,11 @@ int main(int argc, char** argv)
                 ooo_cpu[i].finish_sim_instr = ooo_cpu[i].num_retired - ooo_cpu[i].begin_sim_instr;
                 ooo_cpu[i].finish_sim_cycle = current_core_cycle[i] - ooo_cpu[i].begin_sim_cycle;
 
+#ifndef EXTRACT_DATA
                 cout << "Finished CPU " << i << " instructions: " << ooo_cpu[i].finish_sim_instr << " cycles: " << ooo_cpu[i].finish_sim_cycle;
                 cout << " cumulative IPC: " << ((float) ooo_cpu[i].finish_sim_instr / ooo_cpu[i].finish_sim_cycle);
                 cout << " (Simulation time: " << elapsed_hour << " hr " << elapsed_minute << " min " << elapsed_second << " sec) " << endl;
-
+#endif
                 record_roi_stats(i, &ooo_cpu[i].L1D);
                 record_roi_stats(i, &ooo_cpu[i].L1I);
                 record_roi_stats(i, &ooo_cpu[i].L2C);
@@ -870,7 +932,7 @@ int main(int argc, char** argv)
              elapsed_hour = elapsed_minute / 60;
     elapsed_minute -= elapsed_hour*60;
     elapsed_second -= (elapsed_hour*3600 + elapsed_minute*60);
-    
+#ifndef EXTRACT_DATA    
     cout << endl << "ChampSim completed all CPUs" << endl;
     if (NUM_CPUS > 1) {
         cout << endl << "Total Simulation Statistics (not including warmup)" << endl;
@@ -881,8 +943,9 @@ int main(int argc, char** argv)
             print_sim_stats(i, &ooo_cpu[i].L1D);
             print_sim_stats(i, &ooo_cpu[i].L1I);
             print_sim_stats(i, &ooo_cpu[i].L2C);
+	    ooo_cpu[i].l1i_prefetcher_final_stats();
             ooo_cpu[i].L1D.l1d_prefetcher_final_stats();
-            ooo_cpu[i].L2C.l2c_prefetcher_final_stats();
+	    ooo_cpu[i].L2C.l2c_prefetcher_final_stats();
 #endif
             print_sim_stats(i, &uncore.LLC);
         }
@@ -901,14 +964,16 @@ int main(int argc, char** argv)
         print_roi_stats(i, &uncore.LLC);
         cout << "Major fault: " << major_fault[i] << " Minor fault: " << minor_fault[i] << endl;
     }
-
+#endif
     for (uint32_t i=0; i<NUM_CPUS; i++) {
+        ooo_cpu[i].l1i_prefetcher_final_stats();
         ooo_cpu[i].L1D.l1d_prefetcher_final_stats();
         ooo_cpu[i].L2C.l2c_prefetcher_final_stats();
     }
 
     uncore.LLC.llc_prefetcher_final_stats();
-
+//me_here
+//   uncore.LLC.llc_prefetcher_python_finalize();
 #ifndef CRC2_COMPILE
     uncore.LLC.llc_replacement_final_stats();
     print_dram_stats();
