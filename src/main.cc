@@ -21,6 +21,7 @@ uint64_t warmup_instructions     = 1000000,
 time_t start_time;
 char* ml_model;
 char* outfile;
+bool sec_pred;
 // PAGE TABLE
 uint32_t PAGE_TABLE_LATENCY = 0, SWAP_LATENCY = 0;
 queue <uint64_t > page_queue;
@@ -519,6 +520,7 @@ int main(int argc, char** argv)
     uint32_t seed_number = 0;
 	ml_model = "";
 	outfile = "";
+	sec_pred = false;
     // check to see if knobs changed using getopt_long()
     int c;
     while (1) {
@@ -531,13 +533,14 @@ int main(int argc, char** argv)
             {"low_bandwidth",  no_argument, 0, 'b'},
 			{"ml_model", required_argument, 0, 'm'},
 			{"outfile", required_argument, 0, 'o'},
+			{"2pred", no_argument, 0, 'p'},
             {"traces",  no_argument, 0, 't'},
             {0, 0, 0, 0}      
         };
 
         int option_index = 0;
 
-        c = getopt_long_only(argc, argv, "wihsbmo", long_options, &option_index);
+        c = getopt_long_only(argc, argv, "wihsbmop", long_options, &option_index);
 
         // no more option characters
         if (c == -1)
@@ -566,6 +569,9 @@ int main(int argc, char** argv)
                 break;
 			case 'o':
 				outfile = optarg;
+                break;
+			case 'p':
+				sec_pred = true;
                 break;
             case 't':
                 traces_encountered = 1;
@@ -978,8 +984,7 @@ int main(int argc, char** argv)
     }
 
     uncore.LLC.llc_prefetcher_final_stats();
-//me_here
-//   uncore.LLC.llc_prefetcher_python_finalize();
+
 #ifndef CRC2_COMPILE
     uncore.LLC.llc_replacement_final_stats();
     print_dram_stats();

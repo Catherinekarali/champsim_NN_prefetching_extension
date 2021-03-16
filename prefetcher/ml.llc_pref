@@ -25,13 +25,16 @@ IPS history[TOTAL_IPS];
 PyObject *pName, *pModule, *pFunc;
 PyObject *pValue, *pArgs;
 
+extern bool sec_pred;
 
 void CACHE::llc_prefetcher_initialize() 
 {
 	extern char* ml_model;
+	if (sec_pred)
+	    cout << "LLC 2pred-LSTM Prefetcher" << endl;
+	else
+		cout << "LLC LSTM Prefetcher" << endl;
 
-    cout << "LLC 2pred-LSTM Prefetcher" << endl;
-	printf("yes %s\n", ml_model);
 	for (int i=0; i<TOTAL_IPS; i++)
 		history[i].lru = i;
 
@@ -71,7 +74,7 @@ void CACHE::llc_prefetcher_initialize()
 
 uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in)
 {
-	
+
 	int pred1, pred2;
 	uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
     //check if ip already in history
@@ -141,7 +144,7 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
 	  				//	prefetch_line(ip, addr, pf_addr, FILL_LLC, 0);
 					//}
 				}
-				if (pred2 != 0){
+				if (sec_pred && pred2 != 0){
 					uint64_t pythonDelta = pred2;
   					uint64_t pf_addr = (cl_addr + pythonDelta) << LOG2_BLOCK_SIZE;
 					if ((pf_addr>>LOG2_PAGE_SIZE) == (addr >> LOG2_PAGE_SIZE)){
@@ -186,7 +189,7 @@ uint32_t CACHE::llc_prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t 
 
 void CACHE::llc_prefetcher_final_stats()
 {
-  cout << "LLC delta Prefetcher Final Stats" << endl;
+  cout << "LLC Prefetcher Final Stats" << endl;
   if( Py_FinalizeEx() < 0 ){
 	return;   	
   }  
