@@ -2,7 +2,7 @@
 
 if [ "$#" -lt 4 ]; then
     echo "Illegal number of parameters"
-    echo "Usage: ./run_champsim.sh [BINARY] [N_WARM] [N_SIM] [TRACE] [OPTION] [OPTIONARG]"
+    echo "Usage: ./run_champsim.sh [BINARY] [N_WARM] [N_SIM] [TRACE] [OPTION]"
     exit 1
 fi
 
@@ -13,6 +13,7 @@ N_SIM=${3}
 TRACE=${4}
 OPTION=${5}
 OPTIONARG=${6}
+OPTIONS=${7}
 
 # Sanity check
 if [ -z $TRACE_DIR ] || [ ! -d "$TRACE_DIR" ] ; then
@@ -43,4 +44,4 @@ if [ ! -f "$TRACE_DIR/$TRACE" ] ; then
 fi
 
 mkdir -p results_${N_SIM}M
-(PYTHONPATH=./prefetcher/ ./bin/${BINARY} -warmup_instructions ${N_WARM}000000 -simulation_instructions ${N_SIM}000000 ${OPTION} ${OPTIONARG} -traces ${TRACE_DIR}/${TRACE}) &> results_${N_SIM}M/${TRACE}-${BINARY}${OPTION}.txt
+(PYTHONPATH=./prefetcher/ ./bin/${BINARY} -warmup_instructions ${N_WARM}000000 -simulation_instructions ${N_SIM}000000 ${OPTION} ${OPTIONARG} ${OPTIONS} -traces ${TRACE_DIR}/${TRACE}) &> results_${N_SIM}M/${TRACE}-${BINARY}${OPTION}.txt

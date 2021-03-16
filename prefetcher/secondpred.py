@@ -8,7 +8,7 @@
 from tensorflow.keras.backend import clear_session
 from numpy import array
 from keras.models import model_from_json
-#from keras.models import load_model
+from tensorflow.keras.models import load_model
 from keras import backend as K
 import os
 
@@ -29,7 +29,7 @@ def pref_init(Model):
 		model.compile(optimizer='adam',loss='categorical_crossentropy', metrics=['accuracy'])
 		transformer = False
 	elif os.path.exists(Model):
-		model=load_model(Model)
+		model=load_model(Model, compile = False)
 		transformer = True
 	return 0;
 
@@ -43,6 +43,7 @@ def pref_operate(h_list):
 	if (transformer == False):	
 		XX = x.reshape(1,steps,1)
 	else:
+		x = x + 64
 		XX = x.reshape(1,33)
 
 	a = model.predict(XX)
