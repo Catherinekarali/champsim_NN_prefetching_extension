@@ -22,6 +22,7 @@ class BLOCK {
              full_addr,
              tag,
              data,
+             ip,
              cpu,
              instr_id;
 
@@ -64,6 +65,9 @@ class DRAM_ARRAY {
 class PACKET {
   public:
     uint8_t instruction, 
+            is_data,
+            fill_l1i,
+            fill_l1d,
             tlb_access,
             scheduled,
             translated,
@@ -113,6 +117,9 @@ class PACKET {
 
     PACKET() {
         instruction = 0;
+        is_data = 1;
+	fill_l1i = 0;
+	fill_l1d = 0;
         tlb_access = 0;
         scheduled = 0;
         translated = 0;

@@ -26,6 +26,9 @@ IPS history[TOTAL_IPS];
 void CACHE::llc_prefetcher_initialize() 
 {
     cout << "LLC miss data extract" << endl;
+	ofstream myf;
+	myf.open("A.txt");
+	myf.close();
 	for (int i=0; i<TOTAL_IPS; i++)
 		history[i].lru = i;
 
@@ -36,6 +39,8 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
 extern char* outfile;
 ofstream myf;
 myf.open(outfile, std::ios_base::app);
+//myf <<"begin"<<endl;
+	//myf.open("A.txt");
 	uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
     //check if ip already in history
 	int index = -1;
@@ -43,13 +48,15 @@ myf.open(outfile, std::ios_base::app);
 		if (history[index].ip == ip )
 			break;
 	}
+//	myf << index <<endl;
 	//new ip
 	if (index == TOTAL_IPS){
 		for (index = 0; index <TOTAL_IPS; index++){
 			if(history[index].lru == (TOTAL_IPS -1))
 				break;
 		}
-
+//		myf << index <<endl;
+//		myf << ip << endl;
 		history[index].ip = ip;
 		history[index].last_addr = cl_addr;
 
@@ -58,9 +65,11 @@ myf.open(outfile, std::ios_base::app);
 				history[i].lru++;
 		}
 		history[index].lru = 0;
+//	myf << "-1"<<endl;
 	myf.close();
 		return metadata_in;
 	}
+//	myf <<"why"<<endl;
 	if (index == -1)
 		assert(0);
 
@@ -72,11 +81,14 @@ myf.open(outfile, std::ios_base::app);
 		delta = history[index].last_addr - cl_addr;
 		delta *= -1;
 	}
+//	if (delta < -128 || delta > 128)
+//		delta = 0;
 
 	history[index].last_addr = cl_addr;
 	if (history[index].deltas.size() == QUEUE_SIZE)
 		history[index].deltas.pop_front();
 	history[index].deltas.push_back(delta);
+//	myf <<"true"<<endl;
 	if (myf.is_open()){	
 		if (history[index].deltas.size() >= MIN_IP_APPEARANCES){
 			int n = history[index].deltas.size();
@@ -106,5 +118,5 @@ uint32_t CACHE::llc_prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t 
 
 void CACHE::llc_prefetcher_final_stats()
 {
-  cout << "LLC no Prefetcher Final Stats" << endl; 
+  cout << "LLC delta Prefetcher Final Stats" << endl; 
 }
